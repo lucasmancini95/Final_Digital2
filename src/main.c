@@ -12,9 +12,9 @@
 
 #include <cr_section_macros.h>
 
-#define GPIO_TRIGGER_PORT 3
+#define GPIO_TRIGGER_PORT 3 //para el Trigger usamos GPIO0
 #define GPIO_TRIGGER_PIN 0
-#define GPIO_ECHO_PORT 3
+#define GPIO_ECHO_PORT 3	//para el echo usamos GPIO2
 #define GPIO_ECHO_PIN 4
 #define	SCU_TRIGGER_GROUP 6
 #define	SCU_TRIGGER_PIN 1
@@ -60,7 +60,24 @@ void GPIO_init(){
 void TIMERS_init(){
 	Chip_TIMER_Init(LPC_TIMER0);
 	Chip_TIMER_Reset(LPC_TIMER0);
-	Chip_TIMER_ReadCount(LPC_TIMER0);
+	//Chip_TIMER_ReadCount(LPC_TIMER0);
+	Chip_TIMER_SetMatch(LPC_TIMER0, MATCH(0), SystemCoreClock*0.00001);//Trigger 10us
+	Chip_TIMER_SetMatch(LPC_TIMER0, MATCH(1), SystemCoreClock*0.0000005);//Sampleo 0.5us
+	Chip_TIMER_MatchEnableInt(LPC_TIMER0, MATCH(0));
+	Chip_TIMER_MatchEnableInt(LPC_TIMER1, MATCH(0));
+
+	//trigger
+	Chip_TIMER_ResetOnMatchEnable(LPC_TIMER0, MATCH(0));
+	Chip_TIMER_StopOnMatchDisable(LPC_TIMER0, MATCH(0));
+	//sampleo
+	Chip_TIMER_ResetOnMatchEnable(LPC_TIMER1, MATCH(0));
+	Chip_TIMER_StopOnMatchDisable(LPC_TIMER1, MATCH(0));
+
+	NVIC_ClearPendingIRQ(TIMER0_IRQn); //limpia si hay una interrup pendiente
+	NVIC_EnableIRQ(TIMER0_IRQn);
+	NVIC_ClearPendingIRQ(TIMER1_IRQn);
+	NVIC_EnableIRQ(TIMER1_IRQn);
+
 	return;
 }
 
