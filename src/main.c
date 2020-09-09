@@ -1,7 +1,7 @@
 /*
 ===============================================================================
  Name        : Final_D2_LPCOpen.c
- Author      : $(author)
+ Author      : Sasha y solo sasha
  Version     :
  Copyright   : $(copyright)
  Description : main definition
@@ -21,7 +21,10 @@
 #define	SCU_ECHO_GROUP 6
 #define	SCU_ECHO_PIN 5
 
-void PERIPHERAL_init(){
+static uint32_t time_echo=0;//ta bien esto?
+static uint32_t distance=600;
+
+status_t PERIPHERAL_init(){
 	//en esta funcion se inician todos los perifericos (TIMERS, GPIO, UART)
 	LED_ALL();
 	DAC_init();
@@ -29,7 +32,7 @@ void PERIPHERAL_init(){
 	GPIO_init();
 	TIMERS_init();
 	UART_init();
-	return;
+	return OK_ZONE;
 }
 
 void DAC_init(){
@@ -60,23 +63,9 @@ void GPIO_init(){
 void TIMERS_init(){
 	Chip_TIMER_Init(LPC_TIMER0);
 	Chip_TIMER_Reset(LPC_TIMER0);
-	//Chip_TIMER_ReadCount(LPC_TIMER0);
-	Chip_TIMER_SetMatch(LPC_TIMER0, MATCH(0), SystemCoreClock*0.00001);//Trigger 10us
-	Chip_TIMER_SetMatch(LPC_TIMER0, MATCH(1), SystemCoreClock*0.0000005);//Sampleo 0.5us
-	Chip_TIMER_MatchEnableInt(LPC_TIMER0, MATCH(0));
-	Chip_TIMER_MatchEnableInt(LPC_TIMER1, MATCH(0));
-
-	//trigger
-	Chip_TIMER_ResetOnMatchEnable(LPC_TIMER0, MATCH(0));
-	Chip_TIMER_StopOnMatchDisable(LPC_TIMER0, MATCH(0));
-	//sampleo
-	Chip_TIMER_ResetOnMatchEnable(LPC_TIMER1, MATCH(0));
-	Chip_TIMER_StopOnMatchDisable(LPC_TIMER1, MATCH(0));
-
-	NVIC_ClearPendingIRQ(TIMER0_IRQn); //limpia si hay una interrup pendiente
-	NVIC_EnableIRQ(TIMER0_IRQn);
-	NVIC_ClearPendingIRQ(TIMER1_IRQn);
-	NVIC_EnableIRQ(TIMER1_IRQn);
+	Chip_TIMER_ReadCount(LPC_TIMER0); //Returns the current timer terminal count
+//	Chip_TIMER_SetMatch(LPC_TIMER0, MATCH(0), SystemCoreClock*0.00001);//Trigger 10us
+//	Chip_TIMER_SetMatch(LPC_TIMER1, MATCH(0), SystemCoreClock*0.0000005);//Sampleo 0.5us
 
 	return;
 }
@@ -86,14 +75,67 @@ void UART_init(){
 	//Chip_UART_Send(LPC_USART_T *pUART, const void *data, int numBytes);
 }
 
+void GPIO0_IRQHandler(void){ //activar el nvic
+	//if recieve an echo signal
+
+	Chip_TIMER_Reset(LPC_TIMER0);
+	Chip_TIMER_Enable(LPC_TIMER0);
+
+	while(Chip_GPIO_GetPinState(LPC_GPIO_PORT, GPIO_ECHO_PORT, GPIO_ECHO_PIN)!= 0){
+
+	}//esta bien poner estos while sin nada?
+	//hay que armar la get pin state nuestra
+
+	//esto si mal no recuerdo no puede devolver nada, asi que tengo que cambiar una variable global
+	time_echo = Chip_TIMER_ReadCount(LPC_TIMER0);
+	distance = distance_sensor_listen_echo(time_echo);
+	//si pongo el time echo como parametro no tengo que usar la variable global
+}
+
 int main(void) {
 
-    SystemCoreClockUpdate();
-    PERIPHERAL_init();
+    SystemCoreClockUpdate(); //solo si usamos match
 
-    while(1) {
-        __asm volatile ("nop");
+    uint32_t distance=0; //esto generaria que esta pegado al sensor la logica tendria que ser infinito
+    status_t status=OK_INIT;
+
+    status = PERIPHERAL_init(); //GPIO, TIMERS, PWM/DAC, UART en alto nivel
+    if(status != OK_INIT){
+    	//MODO MANTENIMIENTO
     }
-    return 0 ;
+
+    while(1){
+
+    	//empezar a medir distacia
+    	distance_sensor_trigger();
+    	//delay(DELAY_SENSOR_TE); ??
+    	distance = distance_sensor_listen_echo(); //esto no deberia estar en una interrupcion?
+
+    	//the distance determinates the zone of action
+    	if(0<distance<Z1){
+    		zone(ZONE_1);
+    		vibrator_ON(ZONE_1);
+    	}
+    	if(Z1<distance<Z2){
+    		zone(ZONE_2);
+    		vibrator_ON(ZONE_1);
+    	}
+    	if(Z2<distance<Z3){
+    		zone(ZONE_3);
+    		vibrator_ON(ZONE_1);
+    	}
+    	if(Z3<distance){
+    		zone(ZONE_OUT);
+    		vibrator_OFF();
+    	}
+
+    	delay(DELAY_TRIGGER);
+
+    	LED_ALL_OFF();
+    	vibrator_OFF(); //Este es para que apague el vibrador entre uno y otro? dudoso ahre
+
+    }
+    return 0;
 }
+
 

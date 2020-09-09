@@ -159,4 +159,15 @@ void LED_ALL(){
 	LED_cfg(L0R);
 	LED_cfg(L0G);
 	LED_cfg(L0B);
+	return;
+}
+
+void LED_ALL_OFF(){
+	LED_low(L1);
+	LED_low(L2);
+	LED_low(L3);
+	LED_low(L0R);
+	LED_low(L0G);
+	LED_low(L0B);
+	return;
 }
