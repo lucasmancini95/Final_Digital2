@@ -5,8 +5,15 @@ void SCU_SetPin(SCU_T *pSCU, unsigned char port, unsigned char pin, unsigned cha
 	(pSCU->SFSP)[port][pin]|= function | (2<<3);
 }
 
-void SCU_SetEZI(SCU_T *pSCU, unsigned char port, unsigned char pin, unsigned char ezi){
-	(SCU->SFSP)[port][pin]|=(1<<ezi);
-	//Setup buffer
+//Setup buffer
+//EZI=1 enable input buffer
+void SCU_EnableBuffer(SCU_T *pSCU, unsigned char port, unsigned char pin){
+	(SCU->SFSP)[port][pin]|=(1<<6);
 }
 
+//Setup buffer
+//ZIF=1 disable input glitch filter
+//Input glitch filter. Disable the input glitch filter for clocking signals higher than 30 MHz.
+void SCU_DisableGlitchFilter(SCU_T *pSCU, unsigned char port, unsigned char pin){
+	(SCU->SFSP)[port][pin]|=(1<<7);
+}

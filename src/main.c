@@ -12,6 +12,8 @@
 
 #include <cr_section_macros.h>
 
+#include "main.h"
+
 #define GPIO_TRIGGER_PORT 3 //para el Trigger usamos GPIO0
 #define GPIO_TRIGGER_PIN 0
 #define GPIO_ECHO_PORT 3	//para el echo usamos GPIO2
@@ -21,8 +23,9 @@
 #define	SCU_ECHO_GROUP 6
 #define	SCU_ECHO_PIN 5
 
-static uint32_t time_echo=0;//ta bien esto?
-static uint32_t distance=600;
+uint32_t time_echo=0;
+uint32_t distance_echo=600;
+bool GPIO_FLAG=0;
 
 status_t PERIPHERAL_init(){
 	//en esta funcion se inician todos los perifericos (TIMERS, GPIO, UART)
@@ -32,25 +35,22 @@ status_t PERIPHERAL_init(){
 	GPIO_init();
 	TIMERS_init();
 	UART_init();
+	NVIC_init();
+
 	return OK_ZONE;
 }
 
 void DAC_init(){
-	Chip_DAC_Init(LPC_DAC);
-	Chip_DAC_UpdateValue(LPC_DAC, 0); //lo inicializamos en 0
-	//	DAC_enable();
-	//	/*hacerla a partir de :
-	//	void Enable_DMA(){
-	//	(DAC->CTRL)|=(1<<3) | (1<<2) | (1<<1) | (1<<0);
-	//	}
-	//	//DMA_ENA(posicion 3) en 1: Habilitación del DAC y la entrada 15 (DMA Burst Request).*/
-	//
-	//	Enable_ENAIO();
+	Enable_DAC();
+	Values_DAC(0);
 }
 
 void SCU_init(){
 	SCU_SetPin(SCU, SCU_TRIGGER_GROUP, SCU_TRIGGER_PIN, 0);
 	SCU_SetPin(SCU, SCU_ECHO_GROUP, SCU_ECHO_PIN, 0);
+	SCU_EnableBuffer(SCU, SCU_ECHO_GROUP, SCU_ECHO_PIN);
+	SCU_DisableGlitchFilter(SCU, SCU_ECHO_GROUP, SCU_ECHO_PIN); //checkear si hay que usarlo o no
+
 }
 
 void GPIO_init(){
@@ -61,9 +61,12 @@ void GPIO_init(){
 }
 
 void TIMERS_init(){
-	Chip_TIMER_Init(LPC_TIMER0);
-	Chip_TIMER_Reset(LPC_TIMER0);
-	Chip_TIMER_ReadCount(LPC_TIMER0); //Returns the current timer terminal count
+
+	TIMER_init(TIMER0);
+	TIMER_SetFrequency(TIMER0, US_FREQ); //set timer to us
+	TIMER_reset(TIMER0);
+
+	//	Chip_TIMER_Init(LPC_TIMER0);
 //	Chip_TIMER_SetMatch(LPC_TIMER0, MATCH(0), SystemCoreClock*0.00001);//Trigger 10us
 //	Chip_TIMER_SetMatch(LPC_TIMER1, MATCH(0), SystemCoreClock*0.0000005);//Sampleo 0.5us
 
@@ -75,21 +78,23 @@ void UART_init(){
 	//Chip_UART_Send(LPC_USART_T *pUART, const void *data, int numBytes);
 }
 
-void GPIO0_IRQHandler(void){ //activar el nvic
+void NVIC_init(){
+	Enable_PIN_INT(0);
+	Select_GPIO_interrupt(GPIO_ECHO_PORT, GPIO_ECHO_PIN, 0);
+	Enable_NVIC(PIN_INT0_IRQn); //PONER QUE SEA CON LOS DOS FLANCOS BRO
+
+	return;
+}
+
+//Esto interrumpe cuando el gpio de echo se pone en 1
+void GPIO0_IRQHandler(void){
 	//if recieve an echo signal
 
-	Chip_TIMER_Reset(LPC_TIMER0);
-	Chip_TIMER_Enable(LPC_TIMER0);
+	GPIO_FLAG =! GPIO_FLAG;  //not
 
-	while(Chip_GPIO_GetPinState(LPC_GPIO_PORT, GPIO_ECHO_PORT, GPIO_ECHO_PIN)!= 0){
-
-	}//esta bien poner estos while sin nada?
-	//hay que armar la get pin state nuestra
-
-	//esto si mal no recuerdo no puede devolver nada, asi que tengo que cambiar una variable global
-	time_echo = Chip_TIMER_ReadCount(LPC_TIMER0);
-	distance = distance_sensor_listen_echo(time_echo);
-	//si pongo el time echo como parametro no tengo que usar la variable global
+	//por falling and rising edge
+	//___/---------\___ echo signal
+	//  not        not
 }
 
 int main(void) {
@@ -118,11 +123,11 @@ int main(void) {
     	}
     	if(Z1<distance<Z2){
     		zone(ZONE_2);
-    		vibrator_ON(ZONE_1);
+    		vibrator_ON(ZONE_2);
     	}
     	if(Z2<distance<Z3){
     		zone(ZONE_3);
-    		vibrator_ON(ZONE_1);
+    		vibrator_ON(ZONE_3);
     	}
     	if(Z3<distance){
     		zone(ZONE_OUT);
@@ -131,7 +136,7 @@ int main(void) {
 
     	delay(DELAY_TRIGGER);
 
-    	LED_ALL_OFF();
+    	LED_ALL_OFF(); //TESTEAR
     	vibrator_OFF(); //Este es para que apague el vibrador entre uno y otro? dudoso ahre
 
     }

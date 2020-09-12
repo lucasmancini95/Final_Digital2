@@ -1,73 +1,44 @@
+#include "distance_sensor.h"
+
 #define TIME_TRIGGER 10 //micro sec
 
+extern bool GPIO_FLAG;
+extern uint32_t time_echo;
+extern uint32_t distance_echo;
 
-status_t distance_sensor_trigger(){
-
-	int aux=0;
-
-	//Trigger echos del sensor
-	Ultrasonic_Trigger_start(); //negasonic teenage warhead
-
-	while(Timer_status(TIMER_TRIGGER) != OK_TIMER){
-			print_uart(aux);
-			aux++;
-			//delay(1);
-	}
-
-  GPIO_off(GPIO_TRIGGER);
-	
-	return OK_START;
-
+void distance_sensor_trigger(){
+	GPIO_SetPin(GPIO, GPIO_TRIGGER_PORT, GPIO_TRIGGER_PIN, HIGH);
+	delay_us(TIME_TRIGGER);
+	GPIO_SetPin(GPIO, GPIO_TRIGGER_PORT, GPIO_TRIGGER_PIN, LOW);
+	return;
 }
 
-//empieza el timer (y match?) y pone en ON el pin del trigger
-status_t Ultrasonic_Trigger_start(){
-		Timer_start(TIMER_TRIGGER,TIME_TRIGGER);
-		GPIO_on(GPIO_TRIGGER);
-}
+uint32_t distance_sensor_listen_echo(){
+	uint32_t start_echo=0;
 
-//devuelve el estado del trigger (trigger ok ó sigo contando rey)
-status_t Timer_status(TIMER_TRIGGER){
+	TIMER_reset(TIMER0);
+	TIMER_enable(TIMER0);
 
-	//opc 1:
-	//check IRQ ??
+	while(TIMER_ReadCount(TIMER0) != MAX_ECHO_TIME){ // loopea hasta que timer llega al maximo sin recibir nada
+	//Waits echo rise edge
 
-	//opc 2:
+		if(GPIO_FLAG==1){
+			start_echo=TIMER_ReadCount(TIMER0);
 
-	//static uint32_t contador;
-	//delay(1000); //1 seg
-	//contador ++;
-	//if(contador == TIMER_TRIGGER){
-		//return OK_TIMER
-	//}
-
-	return NOT_OK;
-}
-
-status_t distance_sensor_listen_echo(){
-
-	uint32_t contador=0;
-	//start timer
-	Timer_start(TIMER_ECHOR,TIME_ECHO_MAX);
-
-	while(Timer_status(TIMER_ECHO) != OK_TIMER){ // loopea hasta que timer llega al maximo sin recibir nada
-
-		if(GPIO_READ(INPUT_ECHO) == GPIO_ON){ //si volvio el echo
-				
-				//sale del while si llego al tiempo maximo o si se puso en OFF el pin
-				while( GPIO_READ(INPUT_ECHO) == GPIO_OFF || counter == COUNT_MAX){ 
-						//se empieza a contar el tiempo
-            //contador
-				}
-				break; //salgo del while
+			while(GPIO_FLAG != 0){
+				//Waits for GPIO interrupt falling edge
+			}
+			time_echo=TIMER_ReadCount(TIMER0)-start_echo;
+			break;
 		}
 	}
-	return procesamiento_distancia(counter);
+
+	distance_echo = distance_cm(time_echo);
+
+	return distance_echo;
 }
 
-//Hace el calculo necesario para pasar el tiempo de pulso a distancia
-uint32_t procesamiento_distancia(counter){
-  //En principio seria valor en us/58
-  return round(counter/58);
+uint32_t distance_cm(uint32_t time_echo){
+  return round(time_echo/58);		//us to cm
 }
 
