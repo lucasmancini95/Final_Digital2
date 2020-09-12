@@ -8,5 +8,5 @@ void LED_low(led_t led);
 void LED_high(led_t led);
 void LED_ALL();
 void LED_toggle(led_t led);
-
+void LED_ALL_OFF();
 #endif

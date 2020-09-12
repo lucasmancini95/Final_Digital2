@@ -78,8 +78,8 @@ typedef struct{
 
 
 typedef struct{
-	unsigned int CR; //DAC register (tiene el dato convertido)
-	unsigned int CTRL; //DAC control register
+	unsigned int CR; 		//DAC register (tiene el dato convertido)
+	unsigned int CTRL; 		//DAC control register
 	unsigned int CNTVAL;	//DAC counter value register
 }DAC_T;
 //pag 1350 User Manual
